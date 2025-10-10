@@ -2,7 +2,7 @@
 Django==5.2.5
 
 # Django REST Framework
-djangorestframework==3.19.0
+djangorestframework==3.16.1
 
 # JWT authentication
 djangorestframework-simplejwt==5.2.1
