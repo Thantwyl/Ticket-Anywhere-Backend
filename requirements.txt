@@ -12,7 +12,7 @@ psycopg2-binary==2.9.7
 
 # Required by Django
 asgiref==3.7.2
-pytz==2025.7
+pytz==2025.2
 sqlparse==0.5.5
 
 # Optional: For handling images if you use ImageField
