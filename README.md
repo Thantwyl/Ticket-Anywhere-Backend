@@ -42,6 +42,6 @@ Public users can view events and banners, while authenticated users can place an
 
 **Civil Master Solution (CMS)**
 Developed by: *Thantwyl*
-Repository: [GitHub - ]()
+Repository: [GitHub - Ticket Anywhere Backend ](https://github.com/Thantwyl/Ticket-Anywhere-Backend.git)
 
 ---
