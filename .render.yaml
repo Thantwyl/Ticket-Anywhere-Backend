@@ -1,0 +1,10 @@
+# .render.yaml
+services:
+  - type: web
+    name: ticket-anywhere-backend
+    env: python
+    pythonVersion: 3.12
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn ticketanywhere.wsgi:application --bind 0.0.0.0:$PORT
+    autoDeploy: true
+    plan: free
