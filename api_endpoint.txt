@@ -6,12 +6,17 @@ admin77
 admin74123
 
 Authentication
-| Endpoint             | Method   | Description                                          | Auth Required |
-| -------------------- | -------- | ---------------------------------------------------- | ------------- |
-| `/api/auth/login/`   | POST     | Obtain JWT access and refresh tokens.                | No            |
-| `/api/auth/refresh/` | POST     | Refresh the JWT access token using refresh token.    | No            |
-| `/api-auth/login/`   | GET/POST | Django built-in login (for browsing API in browser). | No            |
-| `/api-auth/logout/`  | GET/POST | Django built-in logout.                              | Yes           |
+| Endpoint                      | Method | Description                                          | Auth Required |
+| ----------------------------- | ------ | ---------------------------------------------------- | ------------- |
+| `/api/auth/register/`         | POST   | Register a new customer account (sends OTP email)    | No            |
+| `/api/auth/verify-email/`     | POST   | Verify email with OTP code                           | No            |
+| `/api/auth/resend-otp/`       | POST   | Resend OTP code for email verification               | No            |
+| `/api/auth/login/`            | POST   | Obtain JWT access and refresh tokens.                | No            |
+| `/api/auth/refresh/`          | POST   | Refresh the JWT access token using refresh token.    | No            |
+| `/api/auth/forgot-password/`  | POST   | Request password reset (sends OTP email)             | No            |
+| `/api/auth/reset-password/`   | POST   | Reset password with OTP code                         | No            |
+| `/api-auth/login/`            | GET/POST | Django built-in login (for browsing API in browser). | No            |
+| `/api-auth/logout/`           | GET/POST | Django built-in logout.                              | Yes           |
 
 Customer
 | Endpoint               | Method    | Description                                                     | Auth Required    |
@@ -81,19 +86,112 @@ Notes
     - Use /api-auth/login/ for login in browser interface
     - Protected endpoints require login or JWT token
 
+----------
+
 Example 
 
-Login(POST)
-POST /api/auth/login/
+Register (POST)
+POST /api/auth/register/
 {
   "email": "customer@example.com",
-  "password": "customerpassword"
+  "name": "Customer Name",
+  "password": "securepassword123"
 }
 
 Response
 {
-  "refresh": "<refresh_token>",
-  "access": "<access_token>"
+  "message": "Registration successful. Please check your email for the OTP code.",
+  "email": "customer@example.com"
+}
+
+----------
+
+Verify Email (POST)
+POST /api/auth/verify-email/
+{
+  "email": "customer@example.com",
+  "otp_code": "123456"
+}
+
+Response
+{
+  "message": "Email verified successfully. You can now login."
+}
+
+----------
+
+Resend OTP (POST)
+POST /api/auth/resend-otp/
+{
+  "email": "customer@example.com"
+}
+
+Response
+{
+  "message": "New OTP code sent to your email."
+}
+
+----------
+
+Login (POST)
+POST /api/auth/login/
+{
+  "email": "customer@example.com",
+  "password": "securepassword123"
+}
+
+Response
+{
+  "access_token": "<access_token>",
+  "refresh_token": "<refresh_token>",
+  "user": {
+    "id": 1,
+    "email": "customer@example.com",
+    "name": "Customer Name",
+    "is_staff": false,
+    "is_superuser": false
+  }
+}
+
+----------
+
+Forgot Password (POST)
+POST /api/auth/forgot-password/
+{
+  "email": "customer@example.com"
+}
+
+Response
+{
+  "message": "Password reset OTP sent to your email."
+}
+
+----------
+
+Reset Password (POST)
+POST /api/auth/reset-password/
+{
+  "email": "customer@example.com",
+  "otp_code": "654321",
+  "new_password": "newsecurepassword123"
+}
+
+Response
+{
+  "message": "Password reset successful. You can now login with your new password."
+}
+
+----------
+
+Refresh Token (POST)
+POST /api/auth/refresh/
+{
+  "refresh": "<refresh_token>"
+}
+
+Response
+{
+  "access": "<new_access_token>"
 }
 
 Use the access token in headers --> Authorization: Bearer <access_token>

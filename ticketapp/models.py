@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+import random
+from datetime import timedelta
+from django.utils import timezone
 
 class CustomerManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -14,13 +17,20 @@ class CustomerManager(BaseUserManager):
     def create_superuser(self, email, password, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("email_verified", True)
+        extra_fields.setdefault("is_active", True)
         return self.create_user(email, password, **extra_fields)
 
 class Customer(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False) # default to False until email is verified
     is_staff = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
+    # OTP fields (for sign up and forgot password)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    otp_type = models.CharField(max_length=20, null=True, blank=True)  # 'signup' or 'forgot_password'
 
     objects = CustomerManager()
 
@@ -30,6 +40,32 @@ class Customer(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.name
     
+    def generate_otp(self, otp_type='verification'):
+        """Generate a 6-digit OTP and save it with the current timestamp and type."""
+        self.otp_code = str(random.randint(100000, 999999))
+        self.otp_created_at = timezone.now()
+        self.otp_type = otp_type
+        self.save()
+        return self.otp_code
+    
+    def verify_otp(self, otp_code, otp_type='verification'):
+        """Verify OTP code (expires in 10 minutes)."""
+        if not self.otp_code or not self.otp_created_at or self.otp_code != otp_code or self.otp_type != otp_type:
+            return False
+        # Check if OTP is expired (10 minutes validity)
+        expiry_time = self.otp_created_at + timedelta(minutes=10)
+        if timezone.now() > expiry_time:
+            return False
+        # OTP is valid
+        return True
+    
+    def clear_otp(self):
+        """Clear OTP fields after successful verification."""
+        self.otp_code = None
+        self.otp_created_at = None
+        self.otp_type = None
+        self.save()
+
 class Banner(models.Model):
     banner_name = models.CharField(max_length=100)
     banner_image = models.JSONField(null=True, blank=True)
@@ -70,6 +106,12 @@ class Ticket(models.Model):
     snd_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50
     trd_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50
     status = models.CharField(max_length=20, default='Pending')
+    customer_payment = models.CharField(max_length=100, null=True, blank=True)
+    payment_date = models.CharField(max_length=100, null=True, blank=True)
+    selling_price = models.CharField(max_length=100, null=True, blank=True)
+    zone = models.CharField(max_length=100, null=True, blank=True)
+    row = models.CharField(max_length=100, null=True, blank=True)
+    seat = models.CharField(max_length=100, null=True, blank=True)
     event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
     def __str__(self):
