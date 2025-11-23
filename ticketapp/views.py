@@ -87,7 +87,6 @@ class ResendOTPView(generics.GenericAPIView):
     serializer_class = ResendOTPSerializer
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
-
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -117,7 +116,6 @@ class ForgotPasswordView(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
-
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -147,7 +145,6 @@ class ResetPasswordView(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
-
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -242,4 +239,23 @@ class TicketViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.is_superuser:
             return Ticket.objects.all() 
         return Ticket.objects.filter(order__customer=user)
-    
+    def get_serializer(self, *args, **kwargs):
+        kwargs['partial'] = True  # Allow partial updates
+        return super().get_serializer(*args, **kwargs)
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            serializer.save()
+        else:
+            order = serializer.validated_data.get('order')
+            if not order or order.customer != user:
+                raise PermissionDenied("You can only create tickets for your own orders.")
+            serializer.save()
+    def perform_update(self, serializer):
+        if not (self.request.user.is_staff or self.request.user.is_superuser):
+            raise PermissionDenied("Only admins can update tickets.")
+        serializer.save()
+    def perform_destroy(self, instance):
+        if not (self.request.user.is_staff or self.request.user.is_superuser):
+            raise PermissionDenied("Only admins can delete tickets.")
+        instance.delete()

@@ -58,3 +58,19 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket 
         fields = '__all__'
+    def validate(self, data):
+        status = data.get('status', self.instance.status if self.instance else 'pending')
+        refund_status = data.get('refund_status', self.instance.refund_status if self.instance else 'none')
+       
+        # Validation rules - Corrected field names
+        if status == 'paid' and not all([data.get('customer_payment'), data.get('payment_date')]) :
+            raise serializers.ValidationError("customer_payment and payment_date is required for 'paid' status.")
+        if status == 'complete' and not all([data.get('selling_price'), data.get('zone'), data.get('row'), data.get('seat')]):
+            raise serializers.ValidationError("selling_price, zone, row, and seat are required for 'complete' status.")
+        if status == 'cancel':
+            if refund_status not in ['in_process', 'refunded']:
+                raise serializers.ValidationError("For 'cancel' status, refund_status must be 'in_process' or 'refunded'.")
+        else:
+            if refund_status != 'none':
+                raise serializers.ValidationError("Refund status can only be set for 'cancel' status. Set to 'none' for other statuses.")        
+        return data

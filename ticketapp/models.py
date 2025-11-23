@@ -104,15 +104,31 @@ class Ticket(models.Model):
     priority_date = models.CharField(max_length=100, null=True, blank=True)
     fst_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50 (if need)
     snd_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50
-    trd_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50
-    status = models.CharField(max_length=20, default='Pending')
+    trd_pt = models.CharField(max_length=20, null=True, blank=True) # change the max_length 20-->50    
+    # status field with choices
+    STATUS_CHOICES = [  
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('complete', 'Complete'),
+        ('cancel', 'Cancel')
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    # for paid status
     customer_payment = models.CharField(max_length=100, null=True, blank=True)
     payment_date = models.CharField(max_length=100, null=True, blank=True)
+    # for complete status
     selling_price = models.CharField(max_length=100, null=True, blank=True)
     zone = models.CharField(max_length=100, null=True, blank=True)
     row = models.CharField(max_length=100, null=True, blank=True)
     seat = models.CharField(max_length=100, null=True, blank=True)
+    # for refund sub-status
+    REFUND_CHOICES = [
+        ('none', 'None'),
+        ('in_process', 'In Process'),
+        ('refunded', 'Refunded')
+    ]
+    refund_status = models.CharField(max_length=20, choices=REFUND_CHOICES, default='none')
     event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
     def __str__(self):
-        return f"Ticket {self.id} - {self.passport_name}"
+        return f"Ticket {self.id} - {self.passport_name} ({self.status})"
