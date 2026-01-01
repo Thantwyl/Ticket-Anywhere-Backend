@@ -1,7 +1,8 @@
 from rest_framework import viewsets, permissions, generics, status
 from django.contrib.auth import get_user_model
 from .models import Banner, Category, Event, Customer, Order, Ticket
-from .serializers import CustomerSerializer, BannerSerializer, CategorySerializer, EventSerializer,  OrderSerializer, TicketSerializer, OTPVerificationSerializer, ResendOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+from .serializers import CustomerSerializer, BannerSerializer, CategorySerializer, EventSerializer, OrderSerializer, TicketCreateSerializer, TicketViewSerializer, AdminTicketSerializer, OTPVerificationSerializer, ResendOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+from .permissions import IsAdminOrReadOnly, TicketPermission, OrderPermission
 from rest_framework.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.conf import settings
@@ -10,17 +11,6 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 Customer = get_user_model()
-
-# Custom Permission
-class IsOwnerOrAdmin(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        if request.user.is_staff or request.user.is_superuser:
-            return True
-        if hasattr(obj, "customer"):  # For Order
-            return obj.customer == request.user
-        if hasattr(obj, "order"):  # For Ticket
-            return obj.order.customer == request.user
-        return False
 
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
@@ -89,8 +79,7 @@ class ResendOTPView(generics.GenericAPIView):
     authentication_classes = []
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
+        serializer.is_valid(raise_exception=True)       
         email = serializer.validated_data['email']
         
         try:
@@ -108,8 +97,7 @@ class ResendOTPView(generics.GenericAPIView):
             f'Your new verification code is: {otp_code}\n\nThis code will expire in 10 minutes.\n\nDo not share this code with anyone.',
             settings.EMAIL_HOST_USER,
             [user.email],
-        )
-        
+        )       
         return Response({"message": "New OTP code sent to your email."}, status=status.HTTP_200_OK) 
 
 class ForgotPasswordView(generics.GenericAPIView):
@@ -118,8 +106,7 @@ class ForgotPasswordView(generics.GenericAPIView):
     authentication_classes = []
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
+        serializer.is_valid(raise_exception=True)      
         email = serializer.validated_data['email']
         
         try:
@@ -137,8 +124,7 @@ class ForgotPasswordView(generics.GenericAPIView):
             f'Your password reset code is: {otp_code}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.',
             settings.EMAIL_HOST_USER,
             [user.email],
-        )
-        
+        )       
         return Response({"message": "Password reset OTP sent to your email."}, status=status.HTTP_200_OK)
 
 class ResetPasswordView(generics.GenericAPIView):
@@ -147,8 +133,7 @@ class ResetPasswordView(generics.GenericAPIView):
     authentication_classes = []
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
+        serializer.is_valid(raise_exception=True)      
         email = serializer.validated_data['email']
         otp_code = serializer.validated_data['otp_code']
         new_password = serializer.validated_data['new_password']
@@ -184,8 +169,7 @@ def custom_login(request):
     
     # Check if email is verified (if you implement email verification)
     if hasattr(user, 'email_verified') and not user.email_verified:
-        return Response({'error': 'Please verify your email first'}, status=403)
-    
+        return Response({'error': 'Please verify your email first'}, status=403)  
     # Generate tokens
     refresh = RefreshToken.for_user(user)
 
@@ -204,58 +188,83 @@ def custom_login(request):
 class BannerViewSet(viewsets.ModelViewSet):
     queryset = Banner.objects.all()
     serializer_class = BannerSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all() 
     serializer_class = EventSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
 
-# Order : Only login customer or admin
+# Order : Auto-generated bridge table - mainly for admin management
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [OrderPermission]
+    
     def get_queryset(self):
+        """ Admin sees all orders, customers see only their own """
         user = self.request.user
-        if user.is_staff or user.is_superuser:
-            return Order.objects.all() 
-        return Order.objects.filter(customer=user) 
+        if user.is_staff:
+            return Order.objects.all().order_by('-order_time')
+        return Order.objects.filter(customer=user).order_by('-order_time')
+    
     def perform_create(self, serializer):
-        serializer.save(customer=self.request.user)
+        """ Only admin can manually create orders (usually auto-generated) """
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Orders are auto-generated when creating tickets.")
+        serializer.save()
 
-# Ticket : Only login customer or admin
+# Ticket : Registered customers (limited access) and admin (full access)
 class TicketViewSet(viewsets.ModelViewSet):
     queryset = Ticket.objects.all()
-    serializer_class = TicketSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [TicketPermission]
+    
     def get_queryset(self):
+        """ Admin sees all tickets, customers see only their own """
         user = self.request.user
-        if user.is_staff or user.is_superuser:
-            return Ticket.objects.all() 
-        return Ticket.objects.filter(order__customer=user)
+        if user.is_staff:
+            return Ticket.objects.all().order_by('-id') 
+        return Ticket.objects.filter(order__customer=user).order_by('-id')
+    
+    def get_serializer_class(self):
+        """ Return different serializers based on user type and action """
+        user = self.request.user       
+        if user.is_staff:
+            # Admin gets full serializer for all operations
+            return AdminTicketSerializer
+        else:
+            # Regular customers get limited serializers
+            if self.action == 'create':
+                return TicketCreateSerializer  # Limited fields for creation
+            else:  # list, retrieve
+                return TicketViewSerializer   # Limited fields for viewing
+    
     def get_serializer(self, *args, **kwargs):
         kwargs['partial'] = True  # Allow partial updates
         return super().get_serializer(*args, **kwargs)
+    
     def perform_create(self, serializer):
-        user = self.request.user
-        if user.is_staff or user.is_superuser:
+        """ Handle ticket creation - auto-creates order for customers """
+        if self.request.user.is_staff:
+            # Admin can create tickets with full control
             serializer.save()
         else:
-            order = serializer.validated_data.get('order')
-            if not order or order.customer != user:
-                raise PermissionDenied("You can only create tickets for your own orders.")
+            # Customer creation - order auto-handled in TicketCreateSerializer
             serializer.save()
+    
     def perform_update(self, serializer):
-        if not (self.request.user.is_staff or self.request.user.is_superuser):
-            raise PermissionDenied("Only admins can update tickets.")
+        """ Only admin can update tickets """
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Only administrators can update tickets.")
         serializer.save()
+    
     def perform_destroy(self, instance):
-        if not (self.request.user.is_staff or self.request.user.is_superuser):
-            raise PermissionDenied("Only admins can delete tickets.")
+        """ Only admin can delete tickets """
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Only administrators can delete tickets.")
         instance.delete()

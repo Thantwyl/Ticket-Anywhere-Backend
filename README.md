@@ -37,11 +37,3 @@ Public users can view events and banners, while authenticated users can place an
 | Virtual Environment   | Python `venv`         |
 
 ---
-
-##  Author
-
-**Civil Master Solution (CMS)**
-Developed by: *Thantwyl*
-Repository: [GitHub - Ticket Anywhere Backend ](https://github.com/Thantwyl/Ticket-Anywhere-Backend.git)
-
----
