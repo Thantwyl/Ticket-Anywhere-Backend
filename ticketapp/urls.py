@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import BannerViewSet, CategoryViewSet, EventViewSet, CustomerViewSet, OrderViewSet, TicketViewSet, UserRegisterView, custom_login, VerifyEmailOTPView, ResendOTPView, ForgotPasswordView, ResetPasswordView
 
 router = DefaultRouter()

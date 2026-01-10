@@ -41,23 +41,22 @@ class TicketPermission(BasePermission):
 
 class OrderPermission(BasePermission):
     """
-    Custom permission for orders (bridging table):
-    - Orders are auto-generated, mainly for admin management
-    - Customers can view their own orders
-    - Only admin can modify orders
+    Custom permission for orders:
+    - Authenticated users can create and view their own orders  
+    - Only admin can update/delete orders
     """
     
     def has_permission(self, request, view):
         """ Check if user has permission to access orders """
-        if not request.user.is_authenticated: # must be authenticated for any order operation
-            return False
-        if request.method == 'GET': # allow GET for authenticated users, full access for admin
+        if not request.user.is_authenticated:
+            return False        
+        if request.method in ['GET', 'POST']:  # Allow authenticated users to GET and POST
             return True
-        else:
+        else:  # PUT, PATCH, DELETE - admin only
             return request.user.is_staff
     
     def has_object_permission(self, request, view, obj):
         """ Check permissions for specific order object """
-        if request.method == 'GET': # allow users to view their own orders
-            return obj.customer == request.user or request.user.is_staff
-        return request.user.is_staff # only admin can modify orders
+        if request.method in ['GET', 'POST']:          
+            return obj.customer == request.user or request.user.is_staff  # Users can view/create their own orders, admins can see all
+        return request.user.is_staff  # Only admin can modify orders

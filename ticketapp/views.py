@@ -6,9 +6,13 @@ from .permissions import IsAdminOrReadOnly, TicketPermission, OrderPermission
 from rest_framework.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.http import HttpResponse
+from datetime import datetime
+import csv
+
 
 Customer = get_user_model()
 
@@ -214,10 +218,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Order.objects.filter(customer=user).order_by('-order_time')
     
     def perform_create(self, serializer):
-        """ Only admin can manually create orders (usually auto-generated) """
-        if not self.request.user.is_staff:
-            raise PermissionDenied("Orders are auto-generated when creating tickets.")
-        serializer.save()
+        """ Handle order creation - auto-link to current user """
+        if self.request.user.is_staff: # Admin can create orders for any customer           
+            serializer.save()
+        else: # Customers create orders for themselves            
+            serializer.save(customer=self.request.user)
 
 # Ticket : Registered customers (limited access) and admin (full access)
 class TicketViewSet(viewsets.ModelViewSet):
@@ -234,11 +239,9 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         """ Return different serializers based on user type and action """
         user = self.request.user       
-        if user.is_staff:
-            # Admin gets full serializer for all operations
+        if user.is_staff: # Admin gets full serializer for all operations          
             return AdminTicketSerializer
-        else:
-            # Regular customers get limited serializers
+        else: # Regular customers get limited serializers            
             if self.action == 'create':
                 return TicketCreateSerializer  # Limited fields for creation
             else:  # list, retrieve
@@ -250,11 +253,9 @@ class TicketViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """ Handle ticket creation - auto-creates order for customers """
-        if self.request.user.is_staff:
-            # Admin can create tickets with full control
+        if self.request.user.is_staff: # Admin can create tickets with full control           
             serializer.save()
-        else:
-            # Customer creation - order auto-handled in TicketCreateSerializer
+        else: # Customer creation - order auto-handled in TicketCreateSerializer           
             serializer.save()
     
     def perform_update(self, serializer):
@@ -268,3 +269,77 @@ class TicketViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff:
             raise PermissionDenied("Only administrators can delete tickets.")
         instance.delete()
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def export_csv(self, request):
+        """Export all tickets to CSV file - Admin only"""
+        
+        # Get all tickets with related data for better performance
+        tickets = Ticket.objects.select_related(
+            'order__customer', 'event'
+        ).all().order_by('-id')
+        
+        # Create filename with current timestamp
+        filename = f'tickets_export_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        # Create HTTP response with CSV content type
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Create CSV writer
+        writer = csv.writer(response)
+        
+        # Write header row
+        writer.writerow([
+            'Ticket ID',
+            'Customer Name', 
+            'Customer Email',
+            'Event Name',
+            'Event Location',
+            'Passport Name',
+            'Facebook Name',
+            'Member Code',
+            'Priority Date',
+            'First Priority',
+            'Second Priority', 
+            'Third Priority',
+            'Status',
+            'Customer Payment',
+            'Payment Date',
+            'Selling Price',
+            'Zone',
+            'Row', 
+            'Seat',
+            'Refund Status',
+            'Order Time',
+            'Order ID'
+        ])
+        
+        # Write data rows
+        for ticket in tickets:
+            writer.writerow([
+                ticket.id,
+                ticket.order.customer.name if ticket.order and ticket.order.customer else 'Unknown Customer',
+                ticket.order.customer.email if ticket.order and ticket.order.customer else 'No Email',
+                ticket.event.event_name if ticket.event else 'No Event',
+                ticket.event.event_location if ticket.event else 'No Location',
+                ticket.passport_name or '',
+                ticket.facebook_name or '',
+                ticket.member_code or '',
+                ticket.priority_date if ticket.priority_date else '',
+                ticket.fst_pt or '',
+                ticket.snd_pt or '',
+                ticket.trd_pt or '',
+                ticket.status,
+                ticket.customer_payment or '',
+                ticket.payment_date if ticket.payment_date else '',
+                ticket.selling_price or '',
+                ticket.zone or '',
+                ticket.row or '',
+                ticket.seat or '',
+                ticket.refund_status,
+                ticket.order.order_time if ticket.order and ticket.order.order_time else 'No Order Time',
+                ticket.order.id if ticket.order else 'No Order'
+            ])
+        
+        return response

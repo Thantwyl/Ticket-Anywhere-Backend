@@ -64,13 +64,14 @@ Order
 | `/api/orders/{id}/` | DELETE    | Delete order (admin only)                                  | Yes           |
 
 Ticket
-| Endpoint             | Method    | Description                                                 | Auth Required |
-| -------------------- | --------- | ----------------------------------------------------------- | ------------- |
-| `/api/tickets/`      | GET       | List all tickets (admin sees all, user sees only their own) | Yes           |
-| `/api/tickets/`      | POST      | Create a ticket (linked to current user’s order)            | Yes           |
-| `/api/tickets/{id}/` | GET       | Get specific ticket                                         | Yes           |
-| `/api/tickets/{id}/` | PUT/PATCH | Update ticket (admin only)                                  | Yes           |
-| `/api/tickets/{id}/` | DELETE    | Delete ticket (admin only)                                  | Yes           |
+| Endpoint                         | Method    | Description                                                 | Auth Required |
+| -------------------------------- | --------- | ----------------------------------------------------------- | ------------- |
+| `/api/tickets/`                  | GET       | List all tickets (admin sees all, user sees only their own) | Yes           |
+| `/api/tickets/`                  | POST      | Create a ticket (linked to current user's order)            | Yes           |
+| `/api/tickets/{id}/`             | GET       | Get specific ticket                                         | Yes           |
+| `/api/tickets/{id}/`             | PUT/PATCH | Update ticket (admin only)                                  | Yes           |
+| `/api/tickets/{id}/`             | DELETE    | Delete ticket (admin only)                                  | Yes           |
+| `/api/tickets/export_csv/`       | GET       | Export ALL tickets to CSV file (admin only)                 | Yes           |
 
 
 Notes 
@@ -196,3 +197,21 @@ Response
 
 Use the access token in headers --> Authorization: Bearer <access_token>
 
+----------
+
+CSV EXPORT ENDPOINT (ADMIN ONLY)
+
+Export All Tickets CSV (GET)
+GET /api/tickets/export_csv/
+Headers: Authorization: Bearer <admin_access_token>
+
+Description:
+- Exports ALL tickets in the database to CSV format
+- Includes full ticket details (22 columns)
+- Filename format: tickets_export_YYYYMMDD_HHMMSS.csv
+- Auto-downloads CSV file to browser
+- Only accessible by admin users
+
+Response: CSV file download (not JSON)
+
+----------
