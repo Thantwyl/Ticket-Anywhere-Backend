@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import HttpResponse
 from datetime import datetime
+from django.utils import timezone
 import csv
 
 
@@ -251,8 +252,71 @@ class TicketViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True  # Allow partial updates
         return super().get_serializer(*args, **kwargs)
     
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to handle both single and multiple tickets
+        If tickets array is provided, create multiple tickets in one order
+        If single ticket data, create one ticket with one order
+        """
+        # Check if request contains multiple tickets
+        if 'tickets' in request.data and isinstance(request.data.get('tickets'), list):
+            return self.create_multiple_tickets(request) # Handle multiple tickets in one order
+        else: # Handle single ticket (original behavior)           
+            return super().create(request, *args, **kwargs)
+    
+    def create_multiple_tickets(self, request):
+        """Create multiple tickets in one order"""
+        tickets_data = request.data.get('tickets', [])
+        event_id = request.data.get('event')
+        
+        if not event_id:
+            return Response({
+                'error': 'Event ID is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not tickets_data or len(tickets_data) == 0:
+            return Response({
+                'error': 'At least one ticket is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return Response({
+                'error': 'Event not found'
+            }, status=status.HTTP_404_NOT_FOUND)       
+        order = Order.objects.create(  # Create ONE order for all tickets
+            customer=request.user,
+            event=event,
+            order_time=timezone.now()
+        )       
+        created_tickets = [] # Create all tickets for this order
+        for ticket_data in tickets_data:
+            ticket = Ticket.objects.create(
+                order=order,  # Same order for all tickets
+                event=event,
+                status='pending',
+                refund_status='none',
+                passport_name=ticket_data.get('passport_name', ''),
+                facebook_name=ticket_data.get('facebook_name', ''),
+                member_code=ticket_data.get('member_code', ''),
+                priority_date=ticket_data.get('priority_date'),
+                fst_pt=ticket_data.get('fst_pt', ''),
+                snd_pt=ticket_data.get('snd_pt', ''),
+                trd_pt=ticket_data.get('trd_pt', ''),
+            )
+            created_tickets.append(ticket)       
+        serializer = TicketViewSerializer(created_tickets, many=True) # Serialize response data
+        
+        return Response({
+            'order_id': order.id,
+            'tickets': serializer.data,
+            'total_tickets': len(created_tickets),
+            'message': f'Successfully created {len(created_tickets)} tickets in order {order.id}'
+        }, status=status.HTTP_201_CREATED)
+
     def perform_create(self, serializer):
-        """ Handle ticket creation - auto-creates order for customers """
+        """ Handle single ticket creation - auto-creates order for customers """
         if self.request.user.is_staff: # Admin can create tickets with full control           
             serializer.save()
         else: # Customer creation - order auto-handled in TicketCreateSerializer           

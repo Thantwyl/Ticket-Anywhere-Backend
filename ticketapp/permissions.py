@@ -35,8 +35,7 @@ class TicketPermission(BasePermission):
                 return True
             return request.user.is_staff # admin can view all tickets
         if request.method in ['PUT', 'PATCH', 'DELETE']: # only admin can modify tickets
-            return request.user.is_staff 
-            
+            return request.user.is_staff             
         return False
 
 class OrderPermission(BasePermission):

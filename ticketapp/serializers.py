@@ -57,9 +57,10 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class TicketCreateSerializer(serializers.ModelSerializer):
     """
-    Serializer for regular users creating tickets
-    Only allows basic fields that users should control
+    Serializer for creating single tickets
+    Each ticket gets its own order (original behavior)
     """
+    
     class Meta:
         model = Ticket
         fields = [
@@ -77,51 +78,18 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         """ Create single ticket with its own order """       
         event = validated_data.get('event')
         customer = self.context['request'].user       
-        # Create order for this ticket
+        # Create new order for this single ticket
         order = Order.objects.create(
             customer=customer,
             event=event,
             order_time=timezone.now()
-        )        
+        )       
         # Set default values for ticket
         validated_data['order'] = order
         validated_data['status'] = 'pending'
         validated_data['refund_status'] = 'none'
         
         return super().create(validated_data)
-
-class TicketBatchCreateSerializer(serializers.Serializer):
-    """ Serializer for creating multiple tickets in one order (same purchase session) """
-    event = serializers.PrimaryKeyRelatedField(queryset=Event.objects.all())
-    tickets = TicketCreateSerializer(many=True)
-    
-    def create(self, validated_data):
-        """ Create one order with multiple tickets for same purchase session """
-        event = validated_data['event']
-        tickets_data = validated_data['tickets']
-        customer = self.context['request'].user       
-        # Create ONE order for this purchase session
-        order = Order.objects.create(
-            customer=customer,
-            event=event,
-            order_time=timezone.now()
-        )        
-        # Create all tickets for this order
-        created_tickets = []
-        for ticket_data in tickets_data:
-            ticket = Ticket.objects.create(
-                order=order,
-                event=event,
-                status='pending',
-                refund_status='none',
-                **ticket_data
-            )
-            created_tickets.append(ticket)
-        
-        return {
-            'order': order,
-            'tickets': created_tickets
-        }
 
 class TicketViewSerializer(serializers.ModelSerializer):
     """
@@ -136,6 +104,7 @@ class TicketViewSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = [
             'id',
+            'order',  # Add order field so frontend can see order ID
             'passport_name',
             'facebook_name',
             'member_code',
@@ -147,6 +116,7 @@ class TicketViewSerializer(serializers.ModelSerializer):
             'event_name',
             'customer_name',
             'customer_email',
+            'status', # Include status for user visibility
         ]
         # No admin fields visible to regular users
 
