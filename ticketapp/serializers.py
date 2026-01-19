@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from .models import Banner, Category, Event, Order, Ticket
+from .models import Banner, Category, Event, EventImage, Order, Ticket
 
 Customer = get_user_model()
 
@@ -36,16 +36,37 @@ class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, min_length=8)
 
 class BannerSerializer(serializers.ModelSerializer):
+    banner_image_url = serializers.SerializerMethodField()    
     class Meta:
         model = Banner
-        fields = '__all__'
+        fields = ['id', 'banner_name', 'banner_image', 'banner_image_url']
+        extra_kwargs = {
+            'banner_image': {'write_only': True}
+        }   
+    def get_banner_image_url(self, obj):
+        return obj.banner_image.url if obj.banner_image else None
 
 class CategorySerializer(serializers.ModelSerializer):
+    category_image_url = serializers.SerializerMethodField()
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ['id', 'category_name', 'category_image', 'category_image_url']
+        extra_kwargs = {
+            'category_image': {'write_only': True}
+        }    
+    def get_category_image_url(self, obj):
+        return obj.category_image.url if obj.category_image else None
 
+class EventImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    class Meta:
+        model = EventImage
+        fields = ["id", "image", "image_url"]
+    def get_image_url(self, obj):
+        return obj.image.url
+    
 class EventSerializer(serializers.ModelSerializer):
+    images = EventImageSerializer(many=True, read_only=True)
     class Meta:
         model = Event
         fields = '__all__'

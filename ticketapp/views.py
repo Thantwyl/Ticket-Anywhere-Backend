@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions, generics, status
 from django.contrib.auth import get_user_model
-from .models import Banner, Category, Event, Customer, Order, Ticket
+from .models import Banner, Category, Event, EventImage, Customer, Order, Ticket
 from .serializers import CustomerSerializer, BannerSerializer, CategorySerializer, EventSerializer, OrderSerializer, TicketCreateSerializer, TicketViewSerializer, AdminTicketSerializer, OTPVerificationSerializer, ResendOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
 from .permissions import IsAdminOrReadOnly, TicketPermission, OrderPermission
 from rest_framework.exceptions import PermissionDenied
@@ -13,6 +13,7 @@ from django.http import HttpResponse
 from datetime import datetime
 from django.utils import timezone
 import csv
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 Customer = get_user_model()
@@ -194,16 +195,30 @@ class BannerViewSet(viewsets.ModelViewSet):
     queryset = Banner.objects.all()
     serializer_class = BannerSerializer
     permission_classes = [IsAdminOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser)
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser)
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all() 
     serializer_class = EventSerializer
     permission_classes = [IsAdminOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def create(self, request, *args, **kwargs):
+        images = request.FILES.getlist("images")
+        if len(images) > 6:
+            return Response({"error": "Max 6 images allowed"}, status=400)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event = serializer.save()
+        for img in images:
+            EventImage.objects.create(event=event, image=img)
+        return Response(self.get_serializer(event).data, status=201)
 
 # Order : Auto-generated bridge table - mainly for admin management
 class OrderViewSet(viewsets.ModelViewSet):

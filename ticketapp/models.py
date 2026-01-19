@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 import random
 from datetime import timedelta
 from django.utils import timezone
+from cloudinary.models import CloudinaryField
 
 class CustomerManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -68,19 +69,18 @@ class Customer(AbstractBaseUser, PermissionsMixin):
 
 class Banner(models.Model):
     banner_name = models.CharField(max_length=100)
-    banner_image = models.JSONField(null=True, blank=True)
+    banner_image = CloudinaryField('image', null=True, blank=True)
     def __str__(self):
         return self.banner_name
 
 class Category(models.Model):
     category_name = models.CharField(max_length=100)
-    category_image = models.JSONField(null=True, blank=True)
+    category_image = CloudinaryField('image', null=True, blank=True)
     def __str__(self):
         return self.category_name
     
 class Event(models.Model):
     event_name = models.CharField(max_length=255)
-    event_image = models.JSONField(null=True, blank=True)
     event_date = models.JSONField(null=True, blank=True)
     event_time = models.CharField(max_length=100, null=True, blank=True)
     event_location = models.CharField(max_length=255)
@@ -89,6 +89,12 @@ class Event(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     def __str__(self):
         return self.event_name
+    
+class EventImage(models.Model):
+    image = CloudinaryField('image', null=True, blank=True)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='images')   
+    def __str__(self):
+        return f"Image for {self.event.event_name}"
      
 class Order(models.Model):
     order_time = models.DateTimeField(auto_now_add=True)
