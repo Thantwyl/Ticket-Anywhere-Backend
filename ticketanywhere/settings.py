@@ -32,8 +32,8 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
-if not any(ALLOWED_HOSTS):
+ALLOWED_HOSTS = [host for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host]
+if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['ticket-anywhere-backend.onrender.com']
 
 # Application definition
