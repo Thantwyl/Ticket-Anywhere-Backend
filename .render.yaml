@@ -4,8 +4,8 @@ services:
     name: ticket-anywhere-backend
     env: python
     pythonVersion: 3.12
-    buildCommand: pip install -r requirements.txt && python manage.py migrate
-    startCommand: gunicorn ticketanywhere.wsgi:application --bind 0.0.0.0:$PORT
+    buildCommand: cd Ticket-Anywhere-Backend && pip install -r requirements.txt && python manage.py migrate
+    startCommand: cd Ticket-Anywhere-Backend && gunicorn ticketanywhere.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     autoDeploy: true
     plan: free
     envVars:
