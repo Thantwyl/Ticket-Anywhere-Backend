@@ -4,7 +4,25 @@ services:
     name: ticket-anywhere-backend
     env: python
     pythonVersion: 3.12
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python manage.py migrate
     startCommand: gunicorn ticketanywhere.wsgi:application --bind 0.0.0.0:$PORT
     autoDeploy: true
     plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12
+      - key: DEBUG
+        value: False
+      - key: DJANGO_SECRET_KEY
+        fromEnv: DJANGO_SECRET_KEY
+      - key: ALLOWED_HOSTS
+        value: your-app-name.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ticket-anywhere-db
+          property: connectionString
+
+databases:
+  - name: ticket-anywhere-db
+    plan: free
+    region: ohio
