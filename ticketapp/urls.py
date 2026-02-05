@@ -2,7 +2,6 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import BannerViewSet, CategoryViewSet, EventViewSet, CustomerViewSet, OrderViewSet, TicketViewSet, UserRegisterView, custom_login, VerifyEmailOTPView, ResendOTPView, ForgotPasswordView, ResetPasswordView
-from .viewtest import create_superuser
 
 router = DefaultRouter()
 router.register(r'customers', CustomerViewSet, basename='customer')
@@ -21,5 +20,4 @@ urlpatterns = [
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
     path('auth/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
-    path('create-superuser/', create_superuser, name='create_superuser'),
 ]
