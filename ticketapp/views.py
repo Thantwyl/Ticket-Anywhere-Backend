@@ -226,10 +226,26 @@ class EventViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         event = serializer.save()
-        images = request.FILES.getlist("images")
+        
+        images_to_delete = request.data.get('images_to_delete', [])
+        if images_to_delete:
+            if isinstance(images_to_delete, str):
+                try:
+                    import json
+                    images_to_delete = json.loads(images_to_delete)
+                except Exception:
+                    images_to_delete = [int(i) for i in images_to_delete.split(',') if i.strip().isdigit()]
+            elif isinstance(images_to_delete, list):
+                images_to_delete = [int(i) for i in images_to_delete if str(i).isdigit()]
+            else:
+                images_to_delete = []
+            for img_id in images_to_delete:
+                EventImage.objects.filter(id=img_id, event=event).delete()
+
+        images = request.FILES.getlist("images") # new images to upload
         for img in images:
             EventImage.objects.create(event=event, image=img)
-        return Response(self.get_serializer(event).data)
+        return Response(self.get_serializer(event).data)      
 
 # Order : Auto-generated bridge table - mainly for admin management
 class OrderViewSet(viewsets.ModelViewSet):
