@@ -50,7 +50,7 @@ class CategorySerializer(serializers.ModelSerializer):
     category_image_url = serializers.SerializerMethodField()
     class Meta:
         model = Category
-        fields = ['id', 'category_name', 'category_image', 'category_image_url']
+        fields = ['id', 'category_name', 'category_image', 'category_image_url', 'is_hidden']
         extra_kwargs = {
             'category_image': {'write_only': True}
         }    

@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from datetime import datetime
 from django.utils import timezone
 import csv
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 
 Customer = get_user_model()
@@ -44,8 +44,14 @@ class UserRegisterView(generics.CreateAPIView):
         # generate and send otp
         otp_code = user.generate_otp('verification')
         send_mail(
-            'Verify your email - OTP code',
-            f'Your verification code is: {otp_code}\n\nDo not share this code with anyone.',
+            'Email Verification - Your OTP Code',
+            f'''Dear {user.name},
+
+            Thank you for registering with Ticket Anywhere. Your One-Time Password (OTP) for email verification is: {otp_code}. Please enter this code in the app to verify your email address. This code will expire in 10 minutes.         
+            
+            Best regards,
+            Ticket Anywhere Team
+            ''',
             settings.EMAIL_HOST_USER,
             [user.email],
         )
@@ -99,8 +105,18 @@ class ResendOTPView(generics.GenericAPIView):
         # Generate new OTP
         otp_code = user.generate_otp('verification')
         send_mail(
-            'Verify Your Email - New OTP Code',
-            f'Your new verification code is: {otp_code}\n\nThis code will expire in 10 minutes.\n\nDo not share this code with anyone.',
+        'Email Verification - New OTP Code',
+        f'''Dear {user.name},
+
+        You have requested a new One-Time Password (OTP) for verifying your email address with Ticket Anywhere.
+
+        Your new verification code is: {otp_code}
+
+        Please enter this code in the app to verify your email address. This code will expire in 10 minutes.
+
+        Best regards,
+        Ticket Anywhere Team
+        ''',
             settings.EMAIL_HOST_USER,
             [user.email],
         )       
@@ -126,8 +142,20 @@ class ForgotPasswordView(generics.GenericAPIView):
         # Generate OTP for password reset
         otp_code = user.generate_otp('password_reset')
         send_mail(
-            'Password Reset - OTP Code',
-            f'Your password reset code is: {otp_code}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.',
+        'Password Reset - OTP Code',
+        f'''Dear {user.name},
+
+        You have requested to reset your password for your Ticket Anywhere account.
+
+        Your One-Time Password (OTP) for password reset is: {otp_code}
+
+        Please enter this code in the app to reset your password. This code will expire in 10 minutes.
+
+        If you did not request a password reset, please ignore this email.
+
+        Best regards,
+        Ticket Anywhere Team
+        ''',
             settings.EMAIL_HOST_USER,
             [user.email],
         )       
@@ -198,16 +226,44 @@ class BannerViewSet(viewsets.ModelViewSet):
     parser_classes = (MultiPartParser, FormParser)
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def get_queryset(self):
+        """Return all categories for admin, but for non-admin/public hide categories marked hidden."""
+        user = getattr(self.request, 'user', None)
+        if user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            return Category.objects.all()
+        return Category.objects.filter(is_hidden=False)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def toggle_hide(self, request, pk=None):
+        """Admin action to toggle the `is_hidden` flag for a category."""
+        category = self.get_object()
+        category.is_hidden = not category.is_hidden
+        category.save()
+        return Response({'id': category.id, 'is_hidden': category.is_hidden}, status=status.HTTP_200_OK)
 
 class EventViewSet(viewsets.ModelViewSet):
-    queryset = Event.objects.all() 
     serializer_class = EventSerializer
     permission_classes = [IsAdminOrReadOnly]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def get_queryset(self):
+        """Return all events for admin, but for non-admin/public hide events marked hidden."""
+        user = getattr(self.request, 'user', None)
+        if user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            return Event.objects.all()
+        return Event.objects.filter(is_hidden=False)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def toggle_hide(self, request, pk=None):
+        """Admin action to toggle the `is_hidden` flag for an event."""
+        event = self.get_object()
+        event.is_hidden = not event.is_hidden
+        event.save()
+        return Response({'id': event.id, 'is_hidden': event.is_hidden}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         images = request.FILES.getlist("images")

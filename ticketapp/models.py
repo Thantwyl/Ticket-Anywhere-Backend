@@ -76,6 +76,7 @@ class Banner(models.Model):
 class Category(models.Model):
     category_name = models.CharField(max_length=100)
     category_image = CloudinaryField('image', null=True, blank=True)
+    is_hidden = models.BooleanField(default=False)
     def __str__(self):
         return self.category_name
     
@@ -87,6 +88,7 @@ class Event(models.Model):
     sale_date = models.CharField(max_length=100, null=True, blank=True)
     ticket_price = models.JSONField(null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
+    is_hidden = models.BooleanField(default=False)
     def __str__(self):
         return self.event_name
     
